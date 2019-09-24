@@ -1,0 +1,234 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+CS112 Fall 2019
+
+Assignment 1
+
+Erin Doolittle
+
+
+
+```{r}
+foo <- read.csv("https://tinyurl.com/yb4phxx8")
+names(foo)
+dim(foo)
+head(foo)
+date.columns <- c(11, 12, 14, 15, 16, 17, 18, 25)
+```
+
+```{r}
+for(i in date.columns)
+{which_values_are_missing <- which(as.character(foo[,i]) == "")
+foo[which_values_are_missing, i] <- NA
+foo[,i] <- as.Date(as.character(foo[,i]))
+}
+```
+
+These lines allow us to filter our data so that all of the projects listed are from 2009 onwards as specified.  
+
+```{r}
+which_have_NAs <- which(is.na(foo$CirculationDate))
+new_foo <- foo[-which_have_NAs,]
+later_than_2009 <- which(new_foo$CirculationDate >= "2009-01-01")
+other_foo <- new_foo[later_than_2009, ]
+head(other_foo)
+```
+**Problem 1:**
+
+```{r}
+approval_completion_difference <- other_foo$OriginalCompletionDate - other_foo$ApprovalDate
+approval_diff_NAs <- which(is.na(approval_completion_difference))
+app_comp_diff_2 <- approval_completion_difference[-approval_diff_NAs]
+summary(as.integer(app_comp_diff_2))
+
+```
+Part A: Is it true project duration at approval is approximately 2 years or 24 months
+
+Mean time difference between original completion date and approval date is 651.117 days, which is approximately 21.4 months. Median time difference is 600 days, which is approximately 19.7 months.
+
+Thus this claim is true if we are rounding up to years, however the claim overshoots the estimate of how long most projects will wait during this period since most projects will only have a difference of approximately 20 months.
+
+I would argue that rounding up is probably more satisfactory to the waiting party when their project doesn’t take as long compared to a party promised the true average/median values and having to wait longer
+
+
+```{r}
+original_revised_diff <- other_foo$RevisedCompletionDate - other_foo$OriginalCompletionDate
+og_rev_diff_NAs <- which(is.na(original_revised_diff))
+og_rev_diff_2 <- original_revised_diff[-og_rev_diff_NAs]
+og_rev_diff_3 <- as.integer(og_rev_diff_2)
+summary(og_rev_diff_3)
+sorted_foo2 <- other_foo[order(other_foo$CirculationDate),]
+```
+
+Part B: Has completion date difference changed over time?
+
+While there is a trend indicating that there has been a slight decrease in the project delay over time, the correlation between this delay and time is very small. The average delay is greater than the median, indicating that there are some outliers that are biasing the trend for the delays over time, particularly delays in the upper quartile, since we can see the range between the maximum value and the third quartile is 3076 compared to the range of 245 between the minimum and first quartile. 
+
+```{r}
+difference <- as.integer(sorted_foo2$RevisedCompletionDate-sorted_foo2$OriginalCompletionDate)
+reg_foo <- data.frame(difference, sorted_foo2$CirculationDate)
+colnames(reg_foo) <- c('difference', 'circulation.date')
+reg1 <- lm(reg_foo$difference ~ reg_foo$circulation.date)
+quantile(difference, na.rm = TRUE)
+```
+
+```{r}
+mean(reg_foo$difference, na.rm = TRUE)
+median(reg_foo$difference, na.rm = TRUE)
+summary(reg1)
+ggplot2::ggplot(data = reg_foo)+
+  ggplot2::geom_abline(slope = -0.03, intercept = 1068.7, size = 1.5)+
+  ggplot2::geom_point(mapping = ggplot2::aes(x = circulation.date, y = difference), color = "violetred4")
+```
+Part C: How do the projected and actual project lengths compare?
+
+
+```{r}
+planned <- as.integer(other_foo$OriginalCompletionDate - other_foo$ApprovalDate)
+actual <- as.integer(other_foo$RevisedCompletionDate - other_foo$ApprovalDate)
+circ.date <- other_foo$CirculationDate
+diff_foo <- data.frame(planned, actual, circ.date)
+ggplot2::ggplot(data = diff_foo)+
+  ggplot2::geom_point(mapping = ggplot2::aes(x = planned, y = actual, color = circ.date))
+```
+
+```{r}
+quantile(planned, na.rm = TRUE)
+mean(planned, na.rm = TRUE)
+median(planned, na.rm = TRUE)
+quantile(actual)
+mean(actual)
+median(actual)
+```
+
+When looking at the summaries of the projected and actual project lengths, we find that there is a greater variability in the actual lengths compared to the projected lengths when we look at interquartile ranges. The interquartile range (3rd Quartile - 1st Quartile) for the projected lengths is 386 while the interquartile range for the actual length is 643. In addition we know that the average of both the actual and projected project lengths is greater than the median, indicating that there are projects with great lengths skewing the dataset.
+
+
+
+**Problem 2**
+
+```{r}
+later_than_2010 <- which(other_foo$CirculationDate >= "2010-01-01")
+rating_foo <- other_foo[later_than_2010, ]
+table(rating_foo$Rating)
+```
+
+
+
+```{r}
+fun_foo <- data.frame(0:3, c((35/1461)*100, (189/1461)*100, (1039/1461)*100, (194/1461)*100))
+colnames(fun_foo) <- c("Rating", "Percentage")
+fun_foo
+```
+
+```{r}
+ggplot2::ggplot(data = rating_foo) +
+  ggplot2::geom_bar(mapping = ggplot2::aes(x = Rating), fill = "maroon")
+```
+
+The majority of projects (71.9%) were rated 2 out of 3 with a similar number of projects rated 1 out of 3 (12.9%) and 3 out of 3 (13.3%). 
+
+
+
+**Problem 3**
+
+```{r}
+pata_proj <- which(rating_foo$Type == "PATA")
+rating_foo2 <- rating_foo[pata_proj,]
+table(rating_foo2$Rating)
+```
+
+
+
+```{r}
+fun_foo2 <- data.frame(0:3, c((3/274)*100, (22/274)*100, (197/274)*100, (51/274)*100))
+colnames(fun_foo2) <- c("Rating", "Percentage")
+fun_foo2
+```
+
+```{r}
+ggplot2::ggplot(data = rating_foo2) +
+  ggplot2::geom_bar(mapping = ggplot2::aes(x = Rating), fill = "orange")
+```
+
+The majority of projects (71.9%) are also rated 2 out of 3, however there is a greater percentage of projects rated 3 out of 3 (18.6%) than those rated 1 out of 3 (8.0%).
+
+**Problem 4**
+
+```{r}
+quantile(other_foo$RevisedAmount, probs = c(0.1, 0.9))
+```
+
+```{r}
+rev_foo2 <- other_foo[order(other_foo$RevisedAmount),]
+amount_foo <- rev_foo2[c(1:(nrow(rev_foo2)*0.1), (nrow(rev_foo2)*0.9):1666),]
+head(amount_foo)
+```
+
+```{r}
+reg2 <- lm(amount_foo$Rating ~ amount_foo$RevisedAmount)
+summary(reg2)
+```
+
+
+```{r}
+ggplot2::ggplot(data = amount_foo)+
+  ggplot2::geom_point(mapping = ggplot2::aes(x = RevisedAmount, y = Rating), color = "seagreen4")+
+  ggplot2::geom_abline(intercept = 1.978, slope = 0.006, color = "seagreen3", size = 1)
+summary(amount_foo$Rating[1:167])
+summary(amount_foo$Rating[168:333])
+```
+
+The ratings for the top 10% and the bottom 10% are fairly similar, each with a median rating of 2 and an average rating of 20.03. We cannot conclude any causal relationship between the revised amount and the ratings of the selected projects since after running a regression we found the correlation coefficient to be less than 1%. 
+
+
+**Problem 5**
+
+```{r}
+Diff <- as.integer(other_foo$RevisedCompletionDate - other_foo$OriginalCompletionDate)
+howard_foo <- data.frame(other_foo, Diff)
+colnames(howard_foo)
+```
+
+```{r}
+reg3 <- lm(howard_foo$Diff ~ howard_foo$Fund + howard_foo$Type + howard_foo$Country + howard_foo$Division)
+#summary(reg3)
+#the output of this call is too long to include in the PDF, however the shortened verison is as follows
+
+
+#Residuals:
+#     Min       1Q   Median       3Q      Max 
+#-1353.79  -206.94    -2.37   160.49  2007.87 
+#Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+#Residual standard error: 408.1 on 1297 degrees of freedom
+#  (16 observations deleted due to missingness)
+#Multiple R-squared:  0.4189,	Adjusted R-squared:  0.2612 
+#F-statistic: 2.656 on 352 and 1297 DF,  p-value: < 2.2e-16
+```
+
+Part A:
+
+The objective of the drivetrain model is to minimize the delays between projected and actual completion
+
+Part B:
+
+Levers are aspects of the model we can manipulate to change the outcome. In this case, we have many levers that can be controlled (Type, Department, Division, Country, Etc.) however there are also a few variables that are not levers (Circulation Date and Rating). We want to select levers that will be the most effective at causing a difference in the budget completion delay.
+
+Part C:
+
+In Designing an RCT we would want to take many random samples from the data and then run each sample through a model to create a regression. If we randomly sample many times, creating regressions each iteration with the sample data sets, we can create a normalized curve to show what the optimal regression model for predicting the outcomes in the dataset based on the values of correlated variables. This way we find the regression that best suits the overall data set while minimizing the effect of potential biases. Ideally, we would iterate around 1000 times with a sample size of about 200 rows from the data set. This way we can have a large enough sample to run a regression and enough iterations to produce a normalized distribution of the regression correlation values.
+
+Part D:
+
+Our dependent variable is the difference between the original and revised completion dates
+The independent variables in our model are the other variables in or data set. However, since there are so many, we might only choose most variables we consider to be levers. The inclusion of the less correlated variables might actually inhibit the effectiveness of our optimization model, adding noise to the regression models. For example, the Fund, Type, Division, and Country might be chosen as independent variables to form the predictive model since they have correlation coefficients greater than 0.1.
+
+
+Part E:
+
+Sometimes the actual data can bias the model. For example, when there are outliers in the data, the models can be skewed to fit these outliers. Additionally, certain collected data might just add noise to the models instead of improving a model’s prediction effectiveness. A better predictive model can then be made by using an RCT that accounts for these potential biases in the observed data. 
